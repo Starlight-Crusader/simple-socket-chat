@@ -35,7 +35,6 @@ def initial_setup():
 
     client_socket.send(json.dumps(message_data).encode('utf-8'))
 
-# initial_setup()
 
 # Function to receive and display messages
 def receive_messages():
