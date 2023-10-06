@@ -1,6 +1,4 @@
-import socket
-import threading
-import json
+import socket, threading, json, sys
 from time import sleep
 
 
@@ -22,6 +20,8 @@ acknowledged = False
 
 # Call one time at the very beginning to setup nickname and the name of the room to join
 def initial_setup():
+    global nickname, room_name
+
     nickname = input("Pick a nickname visible to others - ")
     room_name = input("Insert the name of the room to join/create - ")
 
@@ -34,6 +34,7 @@ def initial_setup():
     }
 
     client_socket.send(json.dumps(message_data).encode('utf-8'))
+    sleep(1)
 
 
 # Function to receive and display messages
@@ -54,6 +55,8 @@ def receive_messages():
                 print(f"{message_data['payload']['message']}")
             elif message_data['type'] == 'message':
                 print(f"~\n{message_data['payload']['sender']}: {message_data['payload']['text']}", "\nEnter a message (or 'exit' to quit): ", end='')
+            elif message_data['type'] == 'notifications':
+                print(f"\n{message_data['payload']['message']}", "\nEnter a message (or 'exit' to quit): ", end='')
         except ConnectionAbortedError:
             print("Connection to the server was terminated ... :(")
             break
@@ -68,43 +71,45 @@ receive_thread.start()
 def send_chat_messages():
     global acknowledged
 
+    while not acknowledged:
+        initial_setup()
+
     while True:
-        if acknowledged == False:
-            nickname = input("Pick a nickname visible to others - ")
-            room_name = input("Insert the name of the room to join/create - ")
-
-            message_data = {
-                'type': 'connect',
-                'payload': {
-                    'nickname': nickname,
-                    'room_name': room_name
-                }
-            }
-        else:
-            message_text = input("Enter a message (or 'exit' to quit): ")
+        message_text = input("Enter a message (or 'exit' to quit): ")
     
-            if not message_text or message_text.lower() == 'exit':
-                break
+        if not message_text:
+            break
 
-            message_data = {
-                'type': 'message',
-                'payload': {
-                    'sender': nickname,
-                    'room_name': room_name,
-                    'text': message_text
-                }
+        message_data = {
+            'type': 'message',
+            'payload': {
+                'sender': nickname,
+                'room_name': room_name,
+                'text': message_text
             }
+        }
+
+        if message_text.lower() == 'exit':
+            message_data['type'] = 'disconnect'
+            message_data['payload'].pop('text')
+
+        print(message_data)
 
         client_socket.send(json.dumps(message_data).encode('utf-8'))
         sleep(1)
 
-# Start the message serving thread
+        if message_data['type'] == 'disconnect':
+            print('\nShutting down the client...')
+            client_socket.close()
+            sys.exit(0)
+
+
+# Start the message serving&recieving threads
 send_thread = threading.Thread(target=send_chat_messages)
 send_thread.daemon = True
 send_thread.start()
 
 
-# Wait for both threads to complete before closing the client socket
 send_thread.join()
 receive_thread.join()
 

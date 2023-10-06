@@ -1,6 +1,4 @@
-import socket
-import threading
-import json
+import socket, threading, sys, signal, threading, json
 
 
 HOST = '127.0.0.1'
@@ -47,8 +45,13 @@ def handle_client(client_socket, client_address):
             }
 
             client_socket.send(json.dumps(response_data).encode('utf-8'))
-        # elif message_data['type'] == 'disconnect':
-        #     rooms[message_data['payload']['room_name']].remove(client_socket)
+        elif message_data['type'] == 'disconnect':
+            #for client in rooms[message_data['payload']['room_name']]:
+            #    if 
+
+            rooms[message_data['payload']['room_name']].remove(client_socket)
+            clients.remove(client_socket)
+            client_socket.close()
         elif message_data['type'] == 'message':
 
             # Broadcast the message to all the clients in the room
@@ -57,15 +60,26 @@ def handle_client(client_socket, client_address):
                     client.send(message)
 
     # Remove the client from the list and room
-    for room in rooms.keys():
-        if client_socket in rooms[room]:
-            rooms[room].remove(client_socket)
-            break
+    # for room in rooms.keys():
+    #     if client_socket in rooms[room]:
+    #         rooms[room].remove(client_socket)
+    #         break
 
-    clients.remove(client_socket)
-    client_socket.close()
+    # clients.remove(client_socket)
+    # client_socket.close()
 
 clients = []
+
+
+# Function to handle Ctrl+C and other signals
+def signal_handler(sig, frame):
+    print('\nShutting down the server...')
+    server_socket.close()
+    sys.exit(0)
+
+# Register the signal handler
+signal.signal(signal.SIGINT, signal_handler)
+
 
 while True:
     client_socket, client_address = server_socket.accept()
