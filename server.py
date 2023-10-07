@@ -65,33 +65,33 @@ def handle_client(client_socket, client_address):
 
         elif message_data['type'] == 'message':
             if message_data['payload']['text'] == 'exit':
-
-                notification_data = {
-                    'type': 'notification',
-                    'payload': {
-                        'message': f"{message_data['payload']['sender']} has disconnected..."
-                    }
-                }
-                
-                for client in rooms[message_data['payload']['room_name']]:
-                    if client != client_socket:
-                        client.send(json.dumps(notification_data).encode('utf-8'))
-
-                time.sleep(1)
                 rooms[message_data['payload']['room_name']].remove(client_socket)
-                clients.remove(client_socket)
-                client_socket.close()
-
                 print(f"User {message_data['payload']['sender']} left the room {message_data['payload']['room_name']}")
 
                 if len(rooms[message_data['payload']['room_name']]) == 0:
                     rooms.pop(message_data['payload']['room_name'])
                     print(f"Removed the empty room {message_data['payload']['room_name']}")
+
+                print(f"Closed connection for the user {message_data['payload']['sender']}")
+
+                if message_data['payload']['room_name'] in rooms.keys():
+                    notification_data = {
+                        'type': 'notification',
+                        'payload': {
+                            'message': f"{message_data['payload']['sender']} has disconnected..."
+                        }
+                    }
+                
+                    for client in rooms[message_data['payload']['room_name']]:
+                        client.send(json.dumps(notification_data).encode('utf-8'))
             else:
                 # Broadcast the message to all the clients in the room
                 for client in rooms[message_data['payload']['room_name']]:
                     if client != client_socket:
                         client.send(message)
+
+    clients.remove(client_socket)
+    client_socket.close()
 
 clients = []
 
