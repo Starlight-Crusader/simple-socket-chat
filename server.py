@@ -1,4 +1,4 @@
-import socket, threading, sys, signal, threading, json
+import socket, threading, sys, signal, threading, json, time
 
 
 HOST = '127.0.0.1'
@@ -22,7 +22,10 @@ def handle_client(client_socket, client_address):
     print(f'Accepted connection from {client_address}')
 
     while True:
-        message = client_socket.recv(1024)
+        try:
+            message = client_socket.recv(1024)
+        except:
+            pass
         
         if not message:
             break # Exit the loop when the client disconnects
@@ -33,9 +36,12 @@ def handle_client(client_socket, client_address):
 
         if message_data['type'] == 'connect':
             if message_data['payload']['room_name'] not in rooms.keys():
+                print(f"Created a new room {message_data['payload']['room_name']} for user {message_data['payload']['nickname']}")
                 rooms[message_data['payload']['room_name']] = []
 
             rooms[message_data['payload']['room_name']].append(client_socket)
+
+            print(f"Added user {message_data['payload']['nickname']} to the room {message_data['payload']['room_name']}")
 
             response_data = {
                 'type': 'connect_ack',
@@ -45,28 +51,47 @@ def handle_client(client_socket, client_address):
             }
 
             client_socket.send(json.dumps(response_data).encode('utf-8'))
-        elif message_data['type'] == 'disconnect':
-            #for client in rooms[message_data['payload']['room_name']]:
-            #    if 
 
-            rooms[message_data['payload']['room_name']].remove(client_socket)
-            clients.remove(client_socket)
-            client_socket.close()
-        elif message_data['type'] == 'message':
+            notification_data = {
+                'type': 'notification',
+                'payload': {
+                    'message': f"{message_data['payload']['nickname']} has connected..."
+                }
+            }
 
-            # Broadcast the message to all the clients in the room
             for client in rooms[message_data['payload']['room_name']]:
                 if client != client_socket:
-                    client.send(message)
+                    client.send(json.dumps(notification_data).encode('utf-8'))
 
-    # Remove the client from the list and room
-    # for room in rooms.keys():
-    #     if client_socket in rooms[room]:
-    #         rooms[room].remove(client_socket)
-    #         break
+        elif message_data['type'] == 'message':
+            if message_data['payload']['text'] == 'exit':
 
-    # clients.remove(client_socket)
-    # client_socket.close()
+                notification_data = {
+                    'type': 'notification',
+                    'payload': {
+                        'message': f"{message_data['payload']['sender']} has disconnected..."
+                    }
+                }
+                
+                for client in rooms[message_data['payload']['room_name']]:
+                    if client != client_socket:
+                        client.send(json.dumps(notification_data).encode('utf-8'))
+
+                time.sleep(1)
+                rooms[message_data['payload']['room_name']].remove(client_socket)
+                clients.remove(client_socket)
+                client_socket.close()
+
+                print(f"User {message_data['payload']['sender']} left the room {message_data['payload']['room_name']}")
+
+                if len(rooms[message_data['payload']['room_name']]) == 0:
+                    rooms.pop(message_data['payload']['room_name'])
+                    print(f"Removed the empty room {message_data['payload']['room_name']}")
+            else:
+                # Broadcast the message to all the clients in the room
+                for client in rooms[message_data['payload']['room_name']]:
+                    if client != client_socket:
+                        client.send(message)
 
 clients = []
 

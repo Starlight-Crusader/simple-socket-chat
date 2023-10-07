@@ -36,6 +36,9 @@ def initial_setup():
     client_socket.send(json.dumps(message_data).encode('utf-8'))
     sleep(1)
 
+# def close_client():
+#     global nickname, room_name
+
 
 # Function to receive and display messages
 def receive_messages():
@@ -55,7 +58,7 @@ def receive_messages():
                 print(f"{message_data['payload']['message']}")
             elif message_data['type'] == 'message':
                 print(f"~\n{message_data['payload']['sender']}: {message_data['payload']['text']}", "\nEnter a message (or 'exit' to quit): ", end='')
-            elif message_data['type'] == 'notifications':
+            elif message_data['type'] == 'notification':
                 print(f"\n{message_data['payload']['message']}", "\nEnter a message (or 'exit' to quit): ", end='')
         except ConnectionAbortedError:
             print("Connection to the server was terminated ... :(")
@@ -89,18 +92,12 @@ def send_chat_messages():
             }
         }
 
-        if message_text.lower() == 'exit':
-            message_data['type'] = 'disconnect'
-            message_data['payload'].pop('text')
-
-        print(message_data)
-
         client_socket.send(json.dumps(message_data).encode('utf-8'))
         sleep(1)
 
-        if message_data['type'] == 'disconnect':
-            print('\nShutting down the client...')
+        if message_data['payload']['text'] == 'exit':
             client_socket.close()
+            print('\nShutting down the client...')
             sys.exit(0)
 
 
