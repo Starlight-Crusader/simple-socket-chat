@@ -1,9 +1,12 @@
-import socket, threading, json, os, tqdm
+import socket, threading, json, os, base64, math
 from time import sleep
 
 
 HOST = '127.0.0.1'
 PORT = 55555
+
+SEPARATOR = '<SEPARATOR>'
+BUFFER_SIZE = 4096
 
 # Create a socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -16,6 +19,7 @@ print(f'Connected to {HOST}:{PORT}')
 nickname = ''
 room_name = ''
 acknowledged = False
+receive_thread_active = True
 
 
 # Call one time at the very beginning to setup nickname and the name of the room to join
@@ -39,9 +43,9 @@ def initial_setup():
 
 # Thread function to receive and display messages
 def receive_messages():
-    global acknowledged
+    global acknowledged, receive_thread_active
 
-    while True:
+    while receive_thread_active:
         try:
             message = client_socket.recv(1024)
         
@@ -72,11 +76,48 @@ while True:
 
     while acknowledged:
         message_text = input("Enter a message (or 'exit' to quit): ")
-    
+
         if not message_text:
             break
         elif message_text.lower() == 'exit':
             acknowledged = False
+
+        if message_text[:3].lower() == "ul-":
+            filename = message_text[3:]
+            filesize = os.path.getsize(filename)
+
+            receive_thread_active = False
+
+            with open(filename, 'rb') as f:
+                chunk_num = 1
+                chunk_total = math.ceil(filesize / BUFFER_SIZE)
+
+                while True:
+                    bytes_read = f.read(BUFFER_SIZE)
+                    base64_data = base64.b64encode(bytes_read).decode('utf-8')
+
+                    if not bytes_read:
+                        break
+
+                    message_data = {
+                        'type': 'file-upload',
+                        'payload': {
+                            'filename': filename,
+                            'sender': nickname,
+                            'room_name': room_name,
+                            'chunk_num': chunk_num,
+                            'chunk_total': chunk_total,
+                            'chunk': base64_data
+                        }
+                    }
+
+                    client_socket.send(json.dumps(message_data).encode('utf-8'))
+
+                    chunk_num += 1
+
+            receive_thread_active = True
+
+            continue
 
         message_data = {
             'type': 'message',

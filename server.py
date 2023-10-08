@@ -1,8 +1,11 @@
-import socket, threading, sys, signal, threading, json, time
+import socket, threading, sys, signal, threading, json, os, base64
 
 
 HOST = '127.0.0.1'
 PORT = 55555
+
+SEPARATOR = '<SEPARATOR>'
+BUFFER_SIZE = 4096
 
 # Create a socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,6 +38,7 @@ def handle_client(client_socket, client_address):
         print(f"Received from {client_address}: {message_data['type']}")
 
         if message_data['type'] == 'connect':
+            
             if message_data['payload']['room_name'] not in rooms.keys():
                 print(f"Created a new room {message_data['payload']['room_name']} for user {message_data['payload']['nickname']}")
                 rooms[message_data['payload']['room_name']] = []
@@ -64,7 +68,9 @@ def handle_client(client_socket, client_address):
                     client.send(json.dumps(notification_data).encode('utf-8'))
 
         elif message_data['type'] == 'message':
+            
             if message_data['payload']['text'] == 'exit':
+
                 rooms[message_data['payload']['room_name']].remove(client_socket)
                 print(f"User {message_data['payload']['sender']} left the room {message_data['payload']['room_name']}")
 
@@ -84,11 +90,36 @@ def handle_client(client_socket, client_address):
                 
                     for client in rooms[message_data['payload']['room_name']]:
                         client.send(json.dumps(notification_data).encode('utf-8'))
+
             else:
+
                 # Broadcast the message to all the clients in the room
                 for client in rooms[message_data['payload']['room_name']]:
                     if client != client_socket:
                         client.send(message)
+        
+        elif message_data['type'] == 'file-upload':
+            filename = os.path.basename(message_data['payload']['filename'])
+
+            base64_data = message_data['payload']['chunk']
+            bytes_data = base64.b64decode(base64_data)
+
+            with open('./media/download/' + filename, 'wb') as f:
+                f.write(bytes_data)
+
+            if message_data['payload']['chunk_num'] == message_data['payload']['chunk_total']:
+                print(f'{filename} recieved ...')
+
+                notification_data = {
+                'type': 'notification',
+                'payload': {
+                    'message': f"{message_data['payload']['sender']} uploaded file {filename} ..."
+                }
+            }
+                
+            for client in rooms[message_data['payload']['room_name']]:
+                if client != client_socket:
+                    client.send(json.dumps(notification_data).encode('utf-8'))
 
     clients.remove(client_socket)
     client_socket.close()
@@ -113,3 +144,4 @@ while True:
     # Start a thread to handle the client
     client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
     client_thread.start()
+    # client_thread.join()
