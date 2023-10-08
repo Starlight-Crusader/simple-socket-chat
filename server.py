@@ -1,4 +1,4 @@
-import socket, threading, sys, signal, threading, json, os, base64
+import socket, threading, sys, signal, threading, json, os, base64, shutil, math
 
 
 HOST = '127.0.0.1'
@@ -6,6 +6,12 @@ PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
 BUFFER_SIZE = 4096
+
+MEDIA_PATH = './media/server/'
+try:
+    os.makedirs(MEDIA_PATH)
+except:
+    pass
 
 # Create a socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -99,27 +105,58 @@ def handle_client(client_socket, client_address):
                         client.send(message)
         
         elif message_data['type'] == 'file-upload':
-            filename = os.path.basename(message_data['payload']['filename'])
+
+            filename = message_data['payload']['filename']
 
             base64_data = message_data['payload']['chunk']
             bytes_data = base64.b64decode(base64_data)
 
-            with open('./media/download/' + filename, 'wb') as f:
+            with open(MEDIA_PATH + filename, 'wb') as f:
                 f.write(bytes_data)
 
             if message_data['payload']['chunk_num'] == message_data['payload']['chunk_total']:
-                print(f'{filename} recieved ...')
+                print(f'{filename} recieved')
 
                 notification_data = {
                 'type': 'notification',
                 'payload': {
-                    'message': f"{message_data['payload']['sender']} uploaded file {filename} ..."
+                    'message': f"{message_data['payload']['sender']} uploaded file {filename}. Enter dl~{filename} to start the download ..."
                 }
             }
                 
             for client in rooms[message_data['payload']['room_name']]:
                 if client != client_socket:
                     client.send(json.dumps(notification_data).encode('utf-8'))
+
+        elif message_data['type'] == 'download-req':
+
+            filename = message_data['payload']['filename']
+            filesize = os.path.getsize(MEDIA_PATH + filename)
+
+            with open(MEDIA_PATH + filename, 'rb') as f:
+                chunk_num = 1
+                chunk_total = math.ceil(filesize / BUFFER_SIZE)
+
+                while True:
+                    bytes_read = f.read(BUFFER_SIZE)
+                    base64_data = base64.b64encode(bytes_read).decode('utf-8')
+
+                    if not bytes_read:
+                        break
+
+                    message_data = {
+                        'type': 'file-download',
+                        'payload': {
+                            'filename': filename,
+                            'chunk_num': chunk_num,
+                            'chunk_total': chunk_total,
+                            'chunk': base64_data
+                        }
+                    }
+
+                    client_socket.send(json.dumps(message_data).encode('utf-8'))
+
+                    chunk_num += 1
 
     clients.remove(client_socket)
     client_socket.close()
@@ -130,6 +167,12 @@ clients = []
 # Function to handle Ctrl+C and other signals
 def signal_handler(sig, frame):
     print('\nShutting down the server...')
+
+    try:
+        shutil.rmtree(MEDIA_PATH)
+    except OSError as e:
+        print(f"Error: {e}")
+
     server_socket.close()
     sys.exit(0)
 
@@ -144,4 +187,3 @@ while True:
     # Start a thread to handle the client
     client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
     client_thread.start()
-    # client_thread.join()

@@ -1,4 +1,4 @@
-import socket, threading, json, os, base64, math
+import socket, threading, json, os, base64, math, shutil
 from time import sleep
 
 
@@ -7,6 +7,8 @@ PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
 BUFFER_SIZE = 4096
+
+media_path = ''
 
 # Create a socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,12 +21,12 @@ print(f'Connected to {HOST}:{PORT}')
 nickname = ''
 room_name = ''
 acknowledged = False
-receive_thread_active = True
+media_path = ''
 
 
 # Call one time at the very beginning to setup nickname and the name of the room to join
 def initial_setup():
-    global nickname, room_name
+    global nickname, room_name, media_path
 
     nickname = input('Pick a nickname visible to others - ')
     room_name = input('Insert the name of the room to join/create - ')
@@ -40,12 +42,19 @@ def initial_setup():
     client_socket.send(json.dumps(message_data).encode('utf-8'))
     sleep(1)
 
+    media_path = './media/' + nickname + '/'
+
+    try:
+        os.makedirs(media_path)
+    except:
+        pass
+
 
 # Thread function to receive and display messages
 def receive_messages():
-    global acknowledged, receive_thread_active
+    global acknowledged, media_path
 
-    while receive_thread_active:
+    while True:
         try:
             message = client_socket.recv(1024)
         
@@ -61,6 +70,19 @@ def receive_messages():
                 print(f"~\n{message_data['payload']['sender']}: {message_data['payload']['text']}", "\nEnter a message (or 'exit' to quit): ", end='')
             elif message_data['type'] == 'notification':
                 print(f"~\n{message_data['payload']['message']}", "\nEnter a message (or 'exit' to quit): ", end='')
+
+            elif message_data['type'] == 'file-download':
+                filename = message_data['payload']['filename']
+
+                base64_data = message_data['payload']['chunk']
+                bytes_data = base64.b64decode(base64_data)
+
+                with open(media_path + filename, 'wb') as f:
+                    f.write(bytes_data)
+
+                if message_data['payload']['chunk_num'] == message_data['payload']['chunk_total']:
+                    print(f'~\n{filename} recieved ...', "\nEnter a message (or 'exit' to quit): ", end='')
+            
         except ConnectionAbortedError:
             print('Connection to the server was terminated ... :(')
             break
@@ -82,13 +104,12 @@ while True:
         elif message_text.lower() == 'exit':
             acknowledged = False
 
-        if message_text[:3].lower() == "ul-":
+        if message_text[:3].lower() == "ul~":
+
             filename = message_text[3:]
-            filesize = os.path.getsize(filename)
+            filesize = os.path.getsize(media_path + filename)
 
-            receive_thread_active = False
-
-            with open(filename, 'rb') as f:
+            with open(media_path + filename, 'rb') as f:
                 chunk_num = 1
                 chunk_total = math.ceil(filesize / BUFFER_SIZE)
 
@@ -115,7 +136,22 @@ while True:
 
                     chunk_num += 1
 
-            receive_thread_active = True
+                continue
+            
+        elif message_text[:3].lower() == "dl~":
+
+            filename = message_text[3:]
+
+            message_data = {
+                'type': 'download-req',
+                'payload': {
+                    'filename': filename,
+                    'sender': nickname,
+                    'room_name': room_name 
+                }
+            }
+
+            client_socket.send(json.dumps(message_data).encode('utf-8'))
 
             continue
 
@@ -134,6 +170,11 @@ while True:
     print('\nShutting down the client...')
     break
 
+if nickname != 'U':
+    try:
+        shutil.rmtree(media_path)
+    except OSError as e:
+        print(f"Error: {e}")
 
 # Close the client socket when done
 client_socket.close()
