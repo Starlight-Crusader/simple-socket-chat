@@ -31,15 +31,16 @@ def handle_client(client_socket, client_address):
     print(f'Accepted connection from {client_address}')
 
     while True:
-        try:
-            message = client_socket.recv(1024)
-        except:
-            pass
+        message = client_socket.recv(1024)
         
         if not message:
             break # Exit the loop when the client disconnects
 
-        message_data = json.loads(message.decode('utf-8'))
+        try:
+            message_data = json.loads(message.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {message_data}")
+            continue
 
         print(f"Received from {client_address}: {message_data['type']}")
 
@@ -111,8 +112,10 @@ def handle_client(client_socket, client_address):
             base64_data = message_data['payload']['chunk']
             bytes_data = base64.b64decode(base64_data)
 
-            with open(MEDIA_PATH + filename, 'wb') as f:
+            with open(MEDIA_PATH + filename, 'ab') as f:
                 f.write(bytes_data)
+
+            f.close()
 
             if message_data['payload']['chunk_num'] == message_data['payload']['chunk_total']:
                 print(f'{filename} recieved')
@@ -157,6 +160,8 @@ def handle_client(client_socket, client_address):
                     client_socket.send(json.dumps(message_data).encode('utf-8'))
 
                     chunk_num += 1
+
+            f.close()
 
     clients.remove(client_socket)
     client_socket.close()

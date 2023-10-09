@@ -6,7 +6,7 @@ HOST = '127.0.0.1'
 PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 1024
 
 media_path = ''
 
@@ -77,8 +77,10 @@ def receive_messages():
                 base64_data = message_data['payload']['chunk']
                 bytes_data = base64.b64decode(base64_data)
 
-                with open(media_path + filename, 'wb') as f:
+                with open(media_path + filename, 'ab') as f:
                     f.write(bytes_data)
+                    
+                f.close()
 
                 if message_data['payload']['chunk_num'] == message_data['payload']['chunk_total']:
                     print(f'~\n{filename} recieved ...', "\nEnter a message (or 'exit' to quit): ", end='')
@@ -136,6 +138,7 @@ while True:
 
                     chunk_num += 1
 
+                f.close()
                 continue
             
         elif message_text[:3].lower() == "dl~":
