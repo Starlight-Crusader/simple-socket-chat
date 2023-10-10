@@ -1,11 +1,12 @@
 import socket, threading, sys, signal, threading, json, os, base64, shutil, math
+from time import sleep
 
 
 HOST = '127.0.0.1'
 PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 500
 
 MEDIA_PATH = './media/server/'
 try:
@@ -39,7 +40,8 @@ def handle_client(client_socket, client_address):
         try:
             message_data = json.loads(message)
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {message_data}")
+            print(f"Error decoding JSON: {message}")
+            print()
             continue
 
         print(f"Received from {client_address}: {message_data['type']}")
@@ -121,15 +123,15 @@ def handle_client(client_socket, client_address):
                 print(f'{filename} recieved')
 
                 notification_data = {
-                'type': 'notification',
-                'payload': {
-                    'message': f"{message_data['payload']['sender']} uploaded file {filename}. Enter dl~{filename} to start the download ..."
+                    'type': 'notification',
+                    'payload': {
+                        'message': f"{message_data['payload']['sender']} uploaded file {filename}. Enter dl~{filename} to start the download ..."
+                    }
                 }
-            }
                 
-            for client in rooms[message_data['payload']['room_name']]:
-                if client != client_socket:
-                    client.send(json.dumps(notification_data).encode('utf-8'))
+                for client in rooms[message_data['payload']['room_name']]:
+                    if client != client_socket:
+                        client.send(json.dumps(notification_data).encode('utf-8'))
 
         elif message_data['type'] == 'download-req':
 
@@ -160,6 +162,7 @@ def handle_client(client_socket, client_address):
                     client_socket.send(json.dumps(message_data).encode('utf-8'))
 
                     chunk_num += 1
+                    sleep(0.1)
 
             f.close()
 

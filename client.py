@@ -6,7 +6,7 @@ HOST = '127.0.0.1'
 PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 500
 
 media_path = ''
 
@@ -56,7 +56,7 @@ def receive_messages():
 
     while True:
         try:
-            message = client_socket.recv(1024) # .decode('utf-8')
+            message = client_socket.recv(1024).decode('utf-8')
         
             if not message:
                 break
@@ -117,10 +117,11 @@ while True:
 
                 while True:
                     bytes_read = f.read(BUFFER_SIZE)
-                    base64_data = base64.b64encode(bytes_read).decode('utf-8')
 
                     if not bytes_read:
                         break
+
+                    base64_data = base64.b64encode(bytes_read).decode('utf-8')
 
                     message_data = {
                         'type': 'file-upload',
@@ -134,9 +135,10 @@ while True:
                         }
                     }
 
-                    client_socket.send(json.dumps(message_data)) #.encode('utf-8'))
+                    client_socket.send(json.dumps(message_data).encode('utf-8'))
 
                     chunk_num += 1
+                    sleep(0.1)
 
             f.close()
             sleep(1)
