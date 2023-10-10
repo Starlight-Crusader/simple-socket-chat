@@ -56,12 +56,12 @@ def receive_messages():
 
     while True:
         try:
-            message = client_socket.recv(1024)
+            message = client_socket.recv(1024) # .decode('utf-8')
         
             if not message:
                 break
 
-            message_data = json.loads(message.decode('utf-8'))
+            message_data = json.loads(message)
         
             if message_data['type'] == 'connect_ack':
                 acknowledged = True
@@ -134,12 +134,12 @@ while True:
                         }
                     }
 
-                    client_socket.send(json.dumps(message_data).encode('utf-8'))
+                    client_socket.send(json.dumps(message_data)) #.encode('utf-8'))
 
                     chunk_num += 1
 
-                f.close()
-                continue
+            f.close()
+            sleep(1)
             
         elif message_text[:3].lower() == "dl~":
 
@@ -155,20 +155,21 @@ while True:
             }
 
             client_socket.send(json.dumps(message_data).encode('utf-8'))
+            sleep(1)
 
-            continue
+        else:
 
-        message_data = {
-            'type': 'message',
-            'payload': {
-                'sender': nickname,
-                'room_name': room_name,
-                'text': message_text
+            message_data = {
+                'type': 'message',
+                'payload': {
+                    'sender': nickname,
+                    'room_name': room_name,
+                    'text': message_text
+                }
             }
-        }
 
-        client_socket.send(json.dumps(message_data).encode('utf-8'))
-        sleep(1)
+            client_socket.send(json.dumps(message_data).encode('utf-8'))
+            sleep(1)
 
     print('\nShutting down the client...')
     break

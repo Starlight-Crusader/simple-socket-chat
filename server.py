@@ -31,13 +31,13 @@ def handle_client(client_socket, client_address):
     print(f'Accepted connection from {client_address}')
 
     while True:
-        message = client_socket.recv(1024)
+        message = client_socket.recv(1024).decode('utf-8')
         
         if not message:
             break # Exit the loop when the client disconnects
 
         try:
-            message_data = json.loads(message.decode('utf-8'))
+            message_data = json.loads(message)
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON: {message_data}")
             continue
@@ -103,7 +103,7 @@ def handle_client(client_socket, client_address):
                 # Broadcast the message to all the clients in the room
                 for client in rooms[message_data['payload']['room_name']]:
                     if client != client_socket:
-                        client.send(message)
+                        client.send(message.encode('utf-8'))
         
         elif message_data['type'] == 'file-upload':
 
