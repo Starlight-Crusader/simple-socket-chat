@@ -6,7 +6,7 @@ HOST = '127.0.0.1'
 PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
-BUFFER_SIZE = 500
+BUFFER_SIZE = 4096
 
 media_path = ''
 
@@ -40,7 +40,7 @@ def initial_setup():
     }
 
     client_socket.send(json.dumps(message_data).encode('utf-8'))
-    sleep(1)
+    sleep(0.5)
 
     media_path = './media/' + nickname + '/'
 
@@ -56,7 +56,7 @@ def receive_messages():
 
     while True:
         try:
-            message = client_socket.recv(1024).decode('utf-8')
+            message = client_socket.recv(BUFFER_SIZE).decode('utf-8')
         
             if not message:
                 break
@@ -113,10 +113,10 @@ while True:
 
             with open(media_path + filename, 'rb') as f:
                 chunk_num = 1
-                chunk_total = math.ceil(filesize / BUFFER_SIZE)
+                chunk_total = math.ceil(filesize / (BUFFER_SIZE - math.ceil(BUFFER_SIZE / 2)))
 
                 while True:
-                    bytes_read = f.read(BUFFER_SIZE)
+                    bytes_read = f.read(BUFFER_SIZE - math.ceil(BUFFER_SIZE / 2))
 
                     if not bytes_read:
                         break
@@ -141,7 +141,7 @@ while True:
                     sleep(0.1)
 
             f.close()
-            sleep(1)
+            sleep(0.5)
             
         elif message_text[:3].lower() == "dl~":
 
@@ -157,7 +157,7 @@ while True:
             }
 
             client_socket.send(json.dumps(message_data).encode('utf-8'))
-            sleep(1)
+            sleep(0.5)
 
         else:
 
@@ -171,7 +171,7 @@ while True:
             }
 
             client_socket.send(json.dumps(message_data).encode('utf-8'))
-            sleep(1)
+            sleep(0.5)
 
     print('\nShutting down the client...')
     break

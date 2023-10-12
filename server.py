@@ -6,7 +6,7 @@ HOST = '127.0.0.1'
 PORT = 55555
 
 SEPARATOR = '<SEPARATOR>'
-BUFFER_SIZE = 500
+BUFFER_SIZE = 4096
 
 MEDIA_PATH = './media/server/'
 try:
@@ -32,7 +32,7 @@ def handle_client(client_socket, client_address):
     print(f'Accepted connection from {client_address}')
 
     while True:
-        message = client_socket.recv(1024).decode('utf-8')
+        message = client_socket.recv(BUFFER_SIZE).decode('utf-8')
         
         if not message:
             break # Exit the loop when the client disconnects
@@ -140,10 +140,10 @@ def handle_client(client_socket, client_address):
 
             with open(MEDIA_PATH + filename, 'rb') as f:
                 chunk_num = 1
-                chunk_total = math.ceil(filesize / BUFFER_SIZE)
+                chunk_total = math.ceil(filesize / (BUFFER_SIZE - math.ceil(BUFFER_SIZE / 2)))
 
                 while True:
-                    bytes_read = f.read(BUFFER_SIZE)
+                    bytes_read = f.read(BUFFER_SIZE - math.ceil(BUFFER_SIZE / 2))
                     base64_data = base64.b64encode(bytes_read).decode('utf-8')
 
                     if not bytes_read:
